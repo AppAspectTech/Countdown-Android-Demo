@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.*
@@ -12,13 +13,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
@@ -33,11 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,29 +50,6 @@ import com.appaspect.countdown.notify.service.TimerNotificationReceiver
 import com.appaspect.countdown.notify.ui.ext.format
 
 @ExperimentalAnimationApi
-
-//@Composable
-//fun TimerHomeScreen(activity: MainActivity, viewModel: TimerViewModel) {
-//    val timer by viewModel.viewState.collectAsState()
-//
-//    Column(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .fillMaxHeight()
-//            .background(Color.Black),
-//        verticalArrangement = Arrangement.Top,
-//        horizontalAlignment = Alignment.CenterHorizontally
-//    ) {
-//
-//        TimerHeader()
-//        Spacer(modifier = Modifier.height(25.dp))
-//        RingRow(timer.remainingTime,viewModel)
-//        Spacer(modifier = Modifier.height(25.dp))
-//        TimerTopSection(timer.timeDuration.format(), timer.remainingTime)
-//        Spacer(modifier = Modifier.height(25.dp))
-//        TimerButtons(activity,viewModel)
-//    }
-//}
 
 @Composable
 fun TimerHomeScreen(activity: MainActivity, viewModel: TimerViewModel) {
@@ -102,14 +75,17 @@ fun TimerHomeScreen(activity: MainActivity, viewModel: TimerViewModel) {
         ) {
             TimerHeader()
             //RingRow(timer.remainingTime,viewModel)
-            TimerTopSection(timer.timeDuration.format(), timer.remainingTime)
+            TimerTopSection(timer.timeDuration.format(), timer.remainingTime,viewModel)
             TimerButtons(activity,viewModel)
         }
     }
+
+
 }
 
 @Composable
-fun TimerTopSection(time: String, remainingTime: Long) {
+fun TimerTopSection(time: String, remainingTime: Long,timerState: TimerViewModel) {
+    val toggle by timerState.viewState.collectAsState()
     val infiniteTransition = rememberInfiniteTransition()
     val alpha by infiniteTransition.animateColor(
         initialValue = Color.Red,
@@ -119,6 +95,15 @@ fun TimerTopSection(time: String, remainingTime: Long) {
             repeatMode = RepeatMode.Reverse
         )
     )
+
+    val colorCode= when (toggle.toggle) {
+        ButtonState.START -> {
+            Color.White
+        }
+        else -> {
+            if (isTimeLessThan10Seconds(remainingTime)) alpha else Color.White
+        }
+    }
 
     // Calculate progress based on the remaining time
 
@@ -135,7 +120,7 @@ fun TimerTopSection(time: String, remainingTime: Long) {
         Text(
             text = time,
             fontSize = 31.sp,
-            color = if (isTimeLessThan10Seconds(remainingTime)) alpha else Color.White
+            color = colorCode
         )
     }
 }
@@ -144,14 +129,14 @@ fun TimerTopSection(time: String, remainingTime: Long) {
 fun RingRow(remainingTime: Long,timerState: TimerViewModel ) {
     val toggle by timerState.viewState.collectAsState()
 
-    val progress = when (toggle.status) {
-        Status.STARTED -> {
+     val progress = if (toggle.timeDuration.isZero) {
             0.0f
         }
-        else -> {
+        else
+        {
             1 - (remainingTime.toFloat() / AppConstant.totalDuration.toFloat())
         }
-    }
+
 
     val infiniteTransition = rememberInfiniteTransition()
     val alpha by infiniteTransition.animateColor(
@@ -227,7 +212,7 @@ fun TimerButtons(activity: MainActivity,timerState: TimerViewModel ) {
     ) {
         IconButton(onClick = {
             timerState.resetTimer()
-
+            AppConstant.cancelAllNotification(activity)
         }) {
             Icon(painter = painterResource(R.drawable.ic_stop), contentDescription = "stop button")
         }
@@ -243,9 +228,10 @@ fun ButtonLayout(activity: MainActivity,timerState: TimerViewModel ) {
     var color: Color = MaterialTheme.colors.primaryVariant
     var textColor: Color = Color.White
 
+
     when (toggle.status) {
         Status.FINISHED -> {
-            postNotification(activity)
+
         }
         else -> {}
     }
@@ -292,6 +278,15 @@ fun ButtonLayout(activity: MainActivity,timerState: TimerViewModel ) {
         Box(modifier = Modifier
             .clickable {
                 timerState.buttonSelection()
+
+                if(toggle.status==Status.RUNNING)
+                {
+                    AppConstant.cancelAllNotification(activity)
+                }
+                else
+                {
+                    setAlarmManager(activity,toggle.remainingTime)
+                }
             }
             .padding(10.dp)
             .size(80.dp)
@@ -322,17 +317,24 @@ fun TimerHeader() {
     )
 }
 
-fun postNotification(context: Context)
+fun setAlarmManager(context: Context, remainingTime: Long)
 {
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    val intent = Intent(context, TimerNotificationReceiver::class.java)
-    val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
+    val alarmTime=System.currentTimeMillis()+ remainingTime
+    Log.e("alarmManager "," start")
+    try {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, TimerNotificationReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
 
-    // Schedule the alarm to trigger after a delay (e.g., 0 milliseconds for immediate execution)
-    alarmManager.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), pendingIntent)
+        // Schedule the alarm to trigger after a delay (e.g., 0 milliseconds for immediate execution)
+        alarmManager.setExact(AlarmManager.RTC_WAKEUP,alarmTime , pendingIntent)
+        Log.e("alarmManager "," end")
+    }
+    catch (ex: Exception)
+    {
+        Log.e("alarmManager "," Exception"+ex)
+    }
+
 }
-
-
-
 
 private fun isTimeLessThan10Seconds(time: Long) = time < 10000L

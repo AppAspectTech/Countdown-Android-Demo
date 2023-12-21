@@ -4,45 +4,63 @@ package com.appaspect.countdown.notify.model
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Duration
-import android.os.CountDownTimer
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.appaspect.countdown.notify.AppConstant
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TimerViewModel : ViewModel() {
 
     private val _viewState = MutableStateFlow(TimerModel())
     val viewState: StateFlow<TimerModel> = _viewState
 
-    private var countDown: CountDownTimer? = null
+    private var timerJob: Job? = null
 
     init {
         _viewState.value = TimerModel()
     }
 
+
     private fun startTime(duration: Duration) {
-        countDown = object : CountDownTimer(duration.toMillis(), 10) {
-            override fun onTick(seconds: Long) {
+        timerJob?.cancel() // Cancel any existing timer
+        _viewState.value = TimerModel(
+            timeDuration = duration,
+            status = Status.RUNNING,
+            toggle = ButtonState.PAUSE
+        )
+
+        timerJob = viewModelScope.launch(Dispatchers.IO) {
+            // ... background work ...
+
+            val endTime = System.currentTimeMillis() + duration.toMillis()
+            while (System.currentTimeMillis() < endTime) {
+                val remainingTime = endTime - System.currentTimeMillis()
                 _viewState.value = TimerModel(
-                    timeDuration = Duration.ofMillis(seconds),
-                    remainingTime = seconds,
+                    timeDuration = Duration.ofMillis(remainingTime),
+                    remainingTime = remainingTime,
                     status = Status.RUNNING,
                     toggle = ButtonState.PAUSE
                 )
+                delay(10) // Update every 10 milliseconds
             }
 
-            override fun onFinish() {
-                _viewState.value = _viewState.value.copy(
-                    timeDuration = Duration.ZERO,
-                    status = Status.FINISHED,
-                    toggle = ButtonState.START
-                )
-            }
+            // Handle timer completion
+            _viewState.value = _viewState.value.copy(
+                timeDuration = Duration.ZERO,
+                status = Status.FINISHED,
+                toggle = ButtonState.START
+            )
+
         }
-        countDown?.start()
+
     }
 
     private fun pauseTimer() {
-        countDown?.cancel()
+        timerJob?.cancel()
         _viewState.value = _viewState.value.copy(
             status = Status.STARTED,
             toggle = ButtonState.RESUME
@@ -50,10 +68,11 @@ class TimerViewModel : ViewModel() {
     }
 
     fun resetTimer() {
-        countDown?.cancel()
+
+        timerJob?.cancel()
         _viewState.value = _viewState.value.copy(
             status = Status.STARTED,
-            timeDuration = Duration.ofMillis(AppConstant.totalDuration),
+            timeDuration = Duration.ZERO,
             toggle = ButtonState.START
         )
     }
@@ -63,7 +82,7 @@ class TimerViewModel : ViewModel() {
 
         when (state?.status) {
             Status.STARTED -> {
-                startTime(state.timeDuration)
+                startTime(Duration.ofMillis(AppConstant.totalDuration))
             }
             Status.RUNNING -> {
                 pauseTimer()

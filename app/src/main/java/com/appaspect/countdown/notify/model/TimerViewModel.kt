@@ -72,7 +72,7 @@ class TimerViewModel : ViewModel() {
         timerJob?.cancel()
         _viewState.value = _viewState.value.copy(
             status = Status.STARTED,
-            timeDuration = Duration.ZERO,
+            timeDuration = Duration.ofMillis(AppConstant.totalDuration),
             toggle = ButtonState.START
         )
     }
@@ -82,7 +82,7 @@ class TimerViewModel : ViewModel() {
 
         when (state?.status) {
             Status.STARTED -> {
-                startTime(Duration.ofMillis(AppConstant.totalDuration))
+                startTime(state.timeDuration)
             }
             Status.RUNNING -> {
                 pauseTimer()

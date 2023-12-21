@@ -48,6 +48,7 @@ import com.appaspect.countdown.notify.model.Status
 import com.appaspect.countdown.notify.model.TimerViewModel
 import com.appaspect.countdown.notify.service.TimerNotificationReceiver
 import com.appaspect.countdown.notify.ui.ext.format
+import java.time.Duration
 
 @ExperimentalAnimationApi
 
@@ -129,7 +130,14 @@ fun TimerTopSection(time: String, remainingTime: Long,timerState: TimerViewModel
 fun RingRow(remainingTime: Long,timerState: TimerViewModel ) {
     val toggle by timerState.viewState.collectAsState()
 
-     val progress = if (toggle.timeDuration.isZero) {
+    when (toggle.status) {
+        Status.FINISHED -> {
+            timerState.resetTimer()
+        }
+        else -> {}
+    }
+     val progress = if (toggle.timeDuration==Duration.ofMillis(AppConstant.totalDuration))
+     {
             0.0f
         }
         else
@@ -229,12 +237,7 @@ fun ButtonLayout(activity: MainActivity,timerState: TimerViewModel ) {
     var textColor: Color = Color.White
 
 
-    when (toggle.status) {
-        Status.FINISHED -> {
 
-        }
-        else -> {}
-    }
     when (toggle.toggle) {
         ButtonState.START -> {
             text = "Start"

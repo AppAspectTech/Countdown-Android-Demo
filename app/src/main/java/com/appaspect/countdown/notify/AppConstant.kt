@@ -13,20 +13,24 @@ class AppConstant {
 
     companion object{
 
+        const val notificationId = 1001
         //const val totalDuration = 2*60*60*1000L // Adjust this value based on your total countdown duration
-        const val totalDuration = 60*1000L // Adjust this value based on your total countdown duration
+        const val totalDuration = 1*60*1000L // Adjust this value based on your total countdown duration
+        var isNotify =true
 
         fun cancelAllNotification(context: Context)
         {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             // Cancel all notifications
-            notificationManager.cancelAll()
+            notificationManager.cancel(notificationId)
 
         }
 
         fun showNotification(context: Context, title: String, content: String) {
 
-            Log.e("TimerNotificationReceiver showNotification "," start")
+            AppLog.e("TimerNotificationReceiver showNotification  start")
+
+            cancelAllNotification(context)
 
             try {
 
@@ -36,7 +40,7 @@ class AppConstant {
 
 
                 val channelId = "default_channel_id"
-                val notificationId = 1001
+
 
                 // Create a NotificationManager
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -63,11 +67,11 @@ class AppConstant {
                 // Show the notification
                 notificationManager.notify(notificationId, builder.build())
 
-                Log.e("TimerNotificationReceiver showNotification "," end")
+                AppLog.e("TimerNotificationReceiver showNotification  end")
             }
             catch (ex:Exception)
             {
-                Log.e("TimerNotificationReceiver showNotification  "," Exception "+ex)
+                AppLog.e("TimerNotificationReceiver showNotification   Exception "+ex)
             }
 
         }

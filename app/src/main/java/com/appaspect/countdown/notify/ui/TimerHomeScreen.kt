@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.appaspect.countdown.notify.AppConstant
+import com.appaspect.countdown.notify.AppLog
 import com.appaspect.countdown.notify.MainActivity
 import com.appaspect.countdown.notify.R
 import com.appaspect.countdown.notify.model.ButtonState
@@ -130,31 +131,25 @@ fun TimerTopSection(time: String, remainingTime: Long,timerState: TimerViewModel
 fun RingRow(remainingTime: Long,timerState: TimerViewModel ) {
     val toggle by timerState.viewState.collectAsState()
 
-    when (toggle.status) {
-        Status.FINISHED -> {
-            timerState.resetTimer()
-        }
-        else -> {}
-    }
-     val progress = if (toggle.timeDuration==Duration.ofMillis(AppConstant.totalDuration))
-     {
+        val progress = if (toggle.remainingTime<=0)
+        {
             0.0f
+
         }
         else
         {
             1 - (remainingTime.toFloat() / AppConstant.totalDuration.toFloat())
         }
 
-
-    val infiniteTransition = rememberInfiniteTransition()
-    val alpha by infiniteTransition.animateColor(
-        initialValue = Color.Red,
-        targetValue = Color.Green,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
+        val infiniteTransition = rememberInfiniteTransition()
+        val alpha by infiniteTransition.animateColor(
+            initialValue = Color.Red,
+            targetValue = Color.Green,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            )
         )
-    )
 
     // Calculate progress based on the remaining time
 
@@ -219,7 +214,9 @@ fun TimerButtons(activity: MainActivity,timerState: TimerViewModel ) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = {
+
             timerState.resetTimer()
+            AppConstant.isNotify =false
             AppConstant.cancelAllNotification(activity)
         }) {
             Icon(painter = painterResource(R.drawable.ic_stop), contentDescription = "stop button")
@@ -235,8 +232,6 @@ fun ButtonLayout(activity: MainActivity,timerState: TimerViewModel ) {
     var text = ""
     var color: Color = MaterialTheme.colors.primaryVariant
     var textColor: Color = Color.White
-
-
 
     when (toggle.toggle) {
         ButtonState.START -> {
@@ -280,16 +275,23 @@ fun ButtonLayout(activity: MainActivity,timerState: TimerViewModel ) {
 
         Box(modifier = Modifier
             .clickable {
+
                 timerState.buttonSelection()
 
-                if(toggle.status==Status.RUNNING)
+                if(toggle.status==Status.STARTED)
                 {
                     AppConstant.cancelAllNotification(activity)
+                    AppConstant.isNotify =true
+                    setAlarmManager(activity,toggle.remainingTime)
+
                 }
                 else
                 {
-                    setAlarmManager(activity,toggle.remainingTime)
+                    AppConstant.isNotify =false
+                    AppConstant.cancelAllNotification(activity)
                 }
+
+
             }
             .padding(10.dp)
             .size(80.dp)
@@ -320,22 +322,27 @@ fun TimerHeader() {
     )
 }
 
-fun setAlarmManager(context: Context, remainingTime: Long)
+fun setAlarmManager(context: Context,remainingTime:Long)
 {
+
     val alarmTime=System.currentTimeMillis()+ remainingTime
-    Log.e("alarmManager "," start")
-    try {
+
+    AppLog.e("alarmManager start $remainingTime")
+
+    try
+    {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, TimerNotificationReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
 
         // Schedule the alarm to trigger after a delay (e.g., 0 milliseconds for immediate execution)
         alarmManager.setExact(AlarmManager.RTC_WAKEUP,alarmTime , pendingIntent)
-        Log.e("alarmManager "," end")
+        AppLog.e("alarmManager  end")
+        AppConstant.isNotify
     }
     catch (ex: Exception)
     {
-        Log.e("alarmManager "," Exception"+ex)
+        AppLog.e("alarmManager  Exception"+ex)
     }
 
 }

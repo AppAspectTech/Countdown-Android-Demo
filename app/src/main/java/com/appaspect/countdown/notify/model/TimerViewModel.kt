@@ -27,16 +27,16 @@ class TimerViewModel : ViewModel() {
 
     private fun startTime(duration: Duration) {
         timerJob?.cancel() // Cancel any existing timer
+        val endTime = System.currentTimeMillis() + duration.toMillis()
         _viewState.value = TimerModel(
             timeDuration = duration,
+            remainingTime = duration.toMillis(),
             status = Status.RUNNING,
             toggle = ButtonState.PAUSE
         )
-
         timerJob = viewModelScope.launch(Dispatchers.IO) {
             // ... background work ...
 
-            val endTime = System.currentTimeMillis() + duration.toMillis()
             while (System.currentTimeMillis() < endTime) {
                 val remainingTime = endTime - System.currentTimeMillis()
                 _viewState.value = TimerModel(
@@ -50,8 +50,9 @@ class TimerViewModel : ViewModel() {
 
             // Handle timer completion
             _viewState.value = _viewState.value.copy(
-                timeDuration = Duration.ZERO,
-                status = Status.FINISHED,
+                status = Status.STARTED,
+                timeDuration = Duration.ofMillis(AppConstant.totalDuration),
+                remainingTime = AppConstant.totalDuration,
                 toggle = ButtonState.START
             )
 
@@ -73,6 +74,7 @@ class TimerViewModel : ViewModel() {
         _viewState.value = _viewState.value.copy(
             status = Status.STARTED,
             timeDuration = Duration.ofMillis(AppConstant.totalDuration),
+            remainingTime = AppConstant.totalDuration,
             toggle = ButtonState.START
         )
     }
@@ -80,9 +82,19 @@ class TimerViewModel : ViewModel() {
     fun buttonSelection() {
         val state = _viewState.value
 
-        when (state?.status) {
+        when (state.status) {
             Status.STARTED -> {
-                startTime(state.timeDuration)
+
+                if(state.toggle==ButtonState.RESUME)
+                {
+                    startTime(state.timeDuration)
+                }
+                else
+                {
+
+                    startTime(Duration.ofMillis(AppConstant.totalDuration))
+                }
+
             }
             Status.RUNNING -> {
                 pauseTimer()

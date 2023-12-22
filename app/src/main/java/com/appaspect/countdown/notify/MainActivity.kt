@@ -39,6 +39,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        AppConstant.isNotify =false
+        AppConstant.cancelAllNotification(this)
+
     }
 }
 

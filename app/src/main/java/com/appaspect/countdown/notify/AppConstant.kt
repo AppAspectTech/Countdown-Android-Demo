@@ -14,7 +14,7 @@ class AppConstant {
     companion object{
 
         const val notificationId = 1001
-        //const val totalDuration = 2*60*60*1000L // Adjust this value based on your total countdown duration
+        //const val totalDuration = 60*60*1000L // Adjust this value based on your total countdown duration
         const val totalDuration = 1*60*1000L // Adjust this value based on your total countdown duration
         var isNotify =true
 
